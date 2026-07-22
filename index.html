@@ -7,7 +7,7 @@
 <style>
   :root {
     --bg: #f7f4ec; --ink: #282623; --muted: #6e6960;
-    --blue: #2a78d6; --green: #1baf7a; --red: #e34948; --grid: rgba(136,135,128,0.4);
+    --blue: #2a78d6; --green: #1baf7a; --red: #e34948; --amber: #e0820f; --grid: rgba(136,135,128,0.4);
     --card: #ffffff; --line: rgba(0,0,0,0.08);
   }
   @media (prefers-color-scheme: dark) {
@@ -51,18 +51,22 @@
   <div class="cards">
     <div class="card"><div class="k">cos θ (horizontal)</div><div class="v" style="color:var(--blue)" id="cosout">0.64</div></div>
     <div class="card"><div class="k">sin θ (vertical)</div><div class="v" style="color:var(--green)" id="sinout">0.77</div></div>
+    <div class="card"><div class="k">tan θ = sin ⁄ cos</div><div class="v" style="color:var(--amber)" id="tanout">1.19</div></div>
     <div class="card"><div class="k">sin²θ + cos²θ</div><div class="v" id="pyt">1.00</div></div>
   </div>
 
   <div class="stage">
-    <svg id="circ" viewBox="0 0 260 260" role="img" aria-label="Unit circle with a point at the chosen angle; horizontal leg is cosine, vertical leg is sine.">
+    <svg id="circ" viewBox="0 0 260 260" style="touch-action:none" role="img" aria-label="Unit circle with a draggable point at the chosen angle; horizontal leg is cosine, vertical leg is sine, vertical tangent line shows tan.">
       <line x1="10" y1="130" x2="250" y2="130" stroke="var(--grid)" stroke-width="1"/>
       <line x1="130" y1="10" x2="130" y2="250" stroke="var(--grid)" stroke-width="1"/>
+      <line x1="230" y1="10" x2="230" y2="250" stroke="var(--amber)" stroke-width="1" stroke-dasharray="3 3" opacity="0.5"/>
       <circle cx="130" cy="130" r="100" fill="none" stroke="var(--muted)" stroke-width="1.5" opacity="0.7"/>
+      <line id="extend" x1="130" y1="130" x2="230" y2="11" stroke="var(--amber)" stroke-width="1" stroke-dasharray="2 3" opacity="0.6"/>
+      <line id="tanseg" x1="230" y1="130" x2="230" y2="11" stroke="var(--amber)" stroke-width="4" stroke-linecap="round"/>
       <line id="cosline" x1="130" y1="130" x2="194" y2="130" stroke="var(--blue)" stroke-width="4" stroke-linecap="round"/>
       <line id="sinline" x1="194" y1="130" x2="194" y2="53" stroke="var(--green)" stroke-width="4" stroke-linecap="round"/>
       <line id="radius" x1="130" y1="130" x2="194" y2="53" stroke="var(--muted)" stroke-width="2"/>
-      <circle id="pt" cx="194" cy="53" r="7" fill="var(--red)" stroke="var(--bg)" stroke-width="2"/>
+      <circle id="pt" cx="194" cy="53" r="9" fill="var(--red)" stroke="var(--bg)" stroke-width="2" style="cursor:grab"/>
     </svg>
     <div class="chartbox">
       <canvas id="waves" role="img" aria-label="Sine and cosine curves from 0 to 360 degrees with a marker at the chosen angle."></canvas>
@@ -71,7 +75,8 @@
   <div class="legend">
     <span><span class="dot" style="background:var(--blue)"></span>cos θ</span>
     <span><span class="dot" style="background:var(--green)"></span>sin θ</span>
-    <span><span class="dot" style="background:var(--red);border-radius:50%"></span>the point</span>
+    <span><span class="dot" style="background:var(--amber)"></span>tan θ</span>
+    <span><span class="dot" style="background:var(--red);border-radius:50%"></span>drag the point</span>
   </div>
 
   <p class="foot">Since the point always lies on a circle of radius 1, Pythagoras gives sin²θ + cos²θ = 1 for every angle. The two curves are the same shape shifted by 90° — cosine is sine a quarter-turn ahead.</p>
@@ -82,21 +87,44 @@
 const deg = [...Array(361).keys()];
 const sinD = deg.map(d => Math.sin(d*Math.PI/180));
 const cosD = deg.map(d => Math.cos(d*Math.PI/180));
+const tanD = deg.map(d => { const t=Math.tan(d*Math.PI/180); return Math.abs(t)>4 ? null : t; });
+const marks = [
+  {y: 0.866, t:'√3⁄2'}, {y: 0.707, t:'√2⁄2'}, {y: 0.5, t:'½'},
+  {y:-0.5, t:'-½'}, {y:-0.707, t:'-√2⁄2'}, {y:-0.866, t:'-√3⁄2'}
+];
+const refLines = {
+  id:'refLines',
+  afterDraw(c){
+    const {ctx, chartArea:{left,right}, scales:{y}} = c;
+    ctx.save();
+    ctx.setLineDash([4,4]); ctx.lineWidth=1; ctx.strokeStyle='rgba(136,135,128,0.55)';
+    ctx.font='10px -apple-system,sans-serif'; ctx.fillStyle='rgba(136,135,128,0.95)'; ctx.textBaseline='bottom';
+    marks.forEach(m=>{
+      const yy=y.getPixelForValue(m.y);
+      ctx.beginPath(); ctx.moveTo(left,yy); ctx.lineTo(right,yy); ctx.stroke();
+      ctx.fillText(m.t, left+4, yy-1);
+    });
+    ctx.restore();
+  }
+};
 const chart = new Chart(document.getElementById('waves'), {
   type: 'line',
+  plugins: [refLines],
   data: { labels: deg, datasets: [
     { data: cosD, borderColor:'#2a78d6', borderWidth:2, pointRadius:0, tension:0.1 },
     { data: sinD, borderColor:'#1baf7a', borderWidth:2, borderDash:[6,4], pointRadius:0, tension:0.1 },
+    { data: tanD, borderColor:'#e0820f', borderWidth:2, pointRadius:0, spanGaps:false, tension:0.1 },
     { data:[{x:50,y:Math.cos(50*Math.PI/180)},{x:50,y:Math.sin(50*Math.PI/180)}], type:'scatter', backgroundColor:'#e34948', pointRadius:5, parsing:false }
   ]},
   options: { responsive:true, maintainAspectRatio:false, animation:false,
     plugins:{ legend:{display:false}, tooltip:{enabled:false} },
     scales:{
       x:{ type:'linear', min:0, max:360, ticks:{ stepSize:90, callback:v=>v+'°' }, grid:{display:false} },
-      y:{ min:-1.1, max:1.1, ticks:{ stepSize:1 }, grid:{ color:'rgba(136,135,128,0.25)' } }
+      y:{ min:-1, max:1, ticks:{ stepSize:0.5 }, grid:{ color:'rgba(136,135,128,0.25)' } }
     } }
 });
-const R=100, CX=130, CY=130;
+const R=100, CX=130, CY=130, TANX=CX+R;
+const slider = document.getElementById('ang');
 function set(id, at){ const e=document.getElementById(id); for(const k in at) e.setAttribute(k, at[k]); }
 function update(a){
   const r=a*Math.PI/180, c=Math.cos(r), s=Math.sin(r);
@@ -105,14 +133,37 @@ function update(a){
   document.getElementById('cosout').textContent = c.toFixed(2);
   document.getElementById('sinout').textContent = s.toFixed(2);
   document.getElementById('pyt').textContent = (s*s + c*c).toFixed(2);
+  const t = s/c;
+  document.getElementById('tanout').textContent = Math.abs(c) < 0.02 ? '∞' : t.toFixed(2);
   set('cosline',{x2:px});
   set('sinline',{x1:px, x2:px, y2:py});
   set('radius',{x2:px, y2:py});
   set('pt',{cx:px, cy:py});
-  chart.data.datasets[2].data = [{x:a,y:c},{x:a,y:s}];
+  const tanY = CY - R*t;
+  set('tanseg', {y2:tanY});
+  set('extend', {x2:TANX, y2:tanY});
+  chart.data.datasets[3].data = [{x:a,y:c},{x:a,y:s}];
   chart.update();
 }
-document.getElementById('ang').addEventListener('input', e => update(+e.target.value));
+slider.addEventListener('input', e => update(+e.target.value));
+
+const svg = document.getElementById('circ');
+let dragging = false;
+function angleFromEvent(e){
+  const pt = svg.createSVGPoint();
+  pt.x = e.clientX; pt.y = e.clientY;
+  const loc = pt.matrixTransform(svg.getScreenCTM().inverse());
+  let deg = Math.round(Math.atan2(CY - loc.y, loc.x - CX) * 180/Math.PI);
+  if (deg < 0) deg += 360;
+  return deg;
+}
+function startDrag(e){ dragging = true; document.getElementById('pt').style.cursor='grabbing'; moveDrag(e); e.preventDefault(); }
+function moveDrag(e){ if(!dragging) return; const a = angleFromEvent(e); slider.value = a; update(a); }
+function endDrag(){ dragging = false; document.getElementById('pt').style.cursor='grab'; }
+svg.addEventListener('pointerdown', startDrag);
+window.addEventListener('pointermove', moveDrag);
+window.addEventListener('pointerup', endDrag);
+
 update(50);
 </script>
 </body>
