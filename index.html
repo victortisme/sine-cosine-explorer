@@ -134,14 +134,22 @@ function update(a){
   document.getElementById('sinout').textContent = s.toFixed(2);
   document.getElementById('pyt').textContent = (s*s + c*c).toFixed(2);
   const t = s/c;
-  document.getElementById('tanout').textContent = Math.abs(c) < 0.02 ? '∞' : t.toFixed(2);
+  const tanFinite = Math.abs(c) > 0.001 && isFinite(t);
+  document.getElementById('tanout').textContent = (!tanFinite || Math.abs(t) > 1000) ? '∞' : t.toFixed(2);
   set('cosline',{x2:px});
   set('sinline',{x1:px, x2:px, y2:py});
   set('radius',{x2:px, y2:py});
   set('pt',{cx:px, cy:py});
-  const tanY = CY - R*t;
-  set('tanseg', {y2:tanY});
-  set('extend', {x2:TANX, y2:tanY});
+  const tanEl = document.getElementById('tanseg');
+  const extEl = document.getElementById('extend');
+  if (tanFinite && Math.abs(t) <= 2.4) {
+    const tanY = CY - R*t;
+    set('tanseg', {y2:tanY}); tanEl.style.display = '';
+    set('extend', {x2:TANX, y2:tanY}); extEl.style.display = '';
+  } else {
+    tanEl.style.display = 'none';
+    extEl.style.display = 'none';
+  }
   chart.data.datasets[3].data = [{x:a,y:c},{x:a,y:s}];
   chart.update();
 }
